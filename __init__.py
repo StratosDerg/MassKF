@@ -13,7 +13,7 @@
 
 bl_info = {
     "name": "Mass KeyFrame",
-    "blender": (4,4,2),
+    "blender": (5,1,0),
     "category": "Animation",
     "author": "StratosDerg",
     "warning": "",
@@ -24,25 +24,33 @@ import bpy # type: ignore
 from mathutils import * # type: ignore
  
 def masskf(op, context, path, index, value=None, copy=False):
+#    active_obj = context.view_layer.objects.active
         for obj in context.selected_objects:
             try:
-                objkf(context=context, path=path, index=index, value=value, copy=copy)
+                objkf(context=context, obj=obj, path=path, index=index, value=value, copy=copy)
             except AttributeError as e:
                 op.report({'ERROR'}, f"Keyframing Failed on {obj.name}: {str(e)}")
                 return {'CANCELLED'}
             except ValueError as e:
                 if "rigid_body" in path and obj.rigid_body == None:
-                    bpy.ops.rigidbody.object_add()
+                    pass
+                    
 #                if path.startswith("modifiers["):
                     
                 try:
-                    objkf(context=context, path=path, index=index, value=value, copy=copy)
+                    objkf(context=context, obj=obj, path=path, index=index, value=value, copy=copy)
                 except:
                     op.report({'ERROR'}, f"Keyframing Failed on {obj.name}, is it the same type?")
                     continue
-def objkf(context, path, index, value=None, copy=False):
+#    context.view_layer.objects.active = active_obj
+def objkf(context, obj, path, index, value=None, copy=False):
     if copy:
-        obj.path_assign(path, value)
+        if "." in path:
+            par_path,attr = path.rsplit(".", 1)
+            par = obj.path_resolve(par_path)
+            setattr(par,attr,value)
+        else:
+            setattr(obj,path,value)
     obj.keyframe_insert(
         data_path=path, index=index, frame=context.scene.frame_current
     )
@@ -75,42 +83,10 @@ class MKFAddAll(bpy.types.Operator):
             active = context.property
             block, path, index = active
             masskf(
-                self=self, context=context, path=path, index=index, copy=False
+                op=self, context=context, path=path, index=index, copy=False
                 )
         
         return {'FINISHED'}
-
-# class MKFDupeFrom(bpy.types.Operator):
-#     """Duplicate a property from active and add a keyframe to all selected objects excluding active"""
-#     bl_idname = "anim.mkf_dupe_from"
-#     bl_label = "Add Keyframe to Selected Objects"
-#     bl_options = {'REGISTER','UNDO'}
-
-#     def execute(self,context):
-#         if context.property:
-#             active = context.property
-#             block, path, index = active
-#             masskf(
-#                 context=context, path=path, index=index, copy=True, active=False
-#                 )
-        
-#         return {'FINISHED'}
-
-# class MKFAddFrom(bpy.types.Operator):
-#     """Add a keyframe for selected property to all selected objects excluding active"""
-#     bl_idname = "anim.mkf_add_from"
-#     bl_label = "Add Keyframe to Selected Objects"
-#     bl_options = {'REGISTER','UNDO'}
-
-#     def execute(self,context):
-#         if context.property:
-#             active = context.property
-#             block, path, index = active
-#             masskf(
-#                 context=context, path=path, index=index, copy=False, active=False
-#                 )
-        
-#         return {'FINISHED'}
 
 def menu_func(self,context):
     layout = self.layout
@@ -129,24 +105,18 @@ class MKFMenu(bpy.types.Menu):
         # Submenu Layout
         layout.operator("anim.mkf_dupe_all",text="Duplicate a keyframe to Selected")
         layout.operator("anim.mkf_add_all",text="Add a keyframe to Selected")
-        # layout.operator("anim.mkf_dupe_from",text="Duplicate a keyframe from Active")
-        # layout.operator("anim.mkf_add_from",text="Add a keyframe to from Active")
 
 
 def register():
     bpy.utils.register_class(MKFDupeAll)
     bpy.utils.register_class(MKFAddAll)
-    # bpy.utils.register_class(MKFAddFrom)
-    # bpy.utils.register_class(MKFDupeFrom)
     bpy.utils.register_class(MKFMenu)
     
     bpy.types.UI_MT_button_context_menu.append(menu_func)
 
 def unregister():
     bpy.utils.unregister_class(MKFDupeAll)
-    bpy.utils.unregister_class(MKFAddAll)
-    # bpy.utils.unregister_class(MKFAddFrom)
-    # bpy.utils.unregister_class(MKFDupeFrom)    
+    bpy.utils.unregister_class(MKFAddAll)   
     bpy.utils.unregister_class(MKFMenu)
     
     bpy.types.UI_MT_button_context_menu.remove(menu_func)
