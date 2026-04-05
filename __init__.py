@@ -23,19 +23,29 @@ bl_info = {
 import bpy # type: ignore
 from mathutils import * # type: ignore
  
-def masskf(context, path, index, value=None, copy=False, active=True):
-        if active:
-            context.active_object.keyframe_insert(
-                data_path=path, index=index, frame=context.scene.frame_current
-                )
+def masskf(op, context, path, index, value=None, copy=False):
         for obj in context.selected_objects:
-            if active or obj!=context.active_object:
-                if hasattr(obj, path):
-                    if copy==True:
-                        setattr(obj, path, value)
-                    obj.keyframe_insert(
-                        data_path=path, index=index, frame=context.scene.frame_current
-                    )
+            try:
+                objkf(context=context, path=path, index=index, value=value, copy=copy)
+            except AttributeError as e:
+                op.report({'ERROR'}, f"Keyframing Failed on {obj.name}: {str(e)}")
+                return {'CANCELLED'}
+            except ValueError as e:
+                if "rigid_body" in path and obj.rigid_body == None:
+                    bpy.ops.rigidbody.object_add()
+#                if path.startswith("modifiers["):
+                    
+                try:
+                    objkf(context=context, path=path, index=index, value=value, copy=copy)
+                except:
+                    op.report({'ERROR'}, f"Keyframing Failed on {obj.name}, is it the same type?")
+                    continue
+def objkf(context, path, index, value=None, copy=False):
+    if copy:
+        obj.path_assign(path, value)
+    obj.keyframe_insert(
+        data_path=path, index=index, frame=context.scene.frame_current
+    )
 
 class MKFDupeAll(bpy.types.Operator):
     """Duplicate a property from active and add a keyframe to all selected objects"""
@@ -47,9 +57,9 @@ class MKFDupeAll(bpy.types.Operator):
         if context.property:
             active = context.property
             block, path, index = active
-            value = getattr(block, path)
+            value = block.path_resolve(path)
             masskf(
-                context=context, path=path, index=index, value=value, copy=True, active=True
+                op=self, context=context, path=path, index=index, value=value, copy=True
                 )
 
         return {'FINISHED'}
@@ -65,7 +75,7 @@ class MKFAddAll(bpy.types.Operator):
             active = context.property
             block, path, index = active
             masskf(
-                context=context, path=path, index=index, copy=False, active=True
+                self=self, context=context, path=path, index=index, copy=False
                 )
         
         return {'FINISHED'}
