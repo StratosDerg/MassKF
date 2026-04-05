@@ -24,8 +24,10 @@ import bpy # type: ignore
 from mathutils import * # type: ignore
  
 def masskf(op, context, path, index, value=None, copy=False):
-#    active_obj = context.view_layer.objects.active
-        for obj in context.selected_objects:
+        active_obj = context.view_layer.objects.active
+        targets = set(context.selected_objects)
+        targets.add(active_obj)
+        for obj in targets:
             try:
                 objkf(context=context, obj=obj, path=path, index=index, value=value, copy=copy)
             except AttributeError as e:
@@ -42,7 +44,7 @@ def masskf(op, context, path, index, value=None, copy=False):
                 except:
                     op.report({'ERROR'}, f"Keyframing Failed on {obj.name}, is it the same type?")
                     continue
-#    context.view_layer.objects.active = active_obj
+
 def objkf(context, obj, path, index, value=None, copy=False):
     if copy:
         if "." in path:
